@@ -22,6 +22,56 @@ class PageContent:
         }
 
 
+LEGACY_GUJARATI_MAP = {
+    # Vowels & Consonants
+    'Â': 'આ', 'Ã': 'ઇ', 'Ä': 'ઈ', 'Å': 'ઉ', 'Æ': 'ઊ', 'Ç': 'ઋ', 'È': 'એ', 'É': 'ઐ', 'Ê': 'ઓ', 'Ë': 'ઔ',
+    'Ì': 'ક', 'Í': 'ખ', 'Î': 'ગ', 'Ï': 'ઘ', 'Ð': 'ચ', 'Ñ': 'છ', 'Ò': 'જ', 'Ó': 'ઝ', 'Ô': 'ટ', 'Õ': 'ઠ',
+    'Ö': 'ડ', '×': 'ઢ', 'Ø': 'ણ', 'Ù': 'ત', 'Ú': 'થ', 'Û': 'દ', 'Ü': 'ધ', 'Ý': 'ન', 'Þ': 'પ', 'ß': 'ફ',
+    'à': 'બ', 'á': 'ભ', 'â': 'મ', 'ã': 'ય', 'ä': 'ર', 'å': 'લ', 'æ': 'વ', 'ç': 'શ', 'è': 'ષ', 'é': 'સ',
+    'ê': 'હ', 'ë': 'ળ', 'ì': 'ક્ષ', 'í': 'જ્ઞ', '¿': 'જ', 'À': 'ગ',
+    # Matras
+    'î': 'ા', 'ï': 'ી', 'ð': 'ુ', 'ñ': 'ૂ', 'ò': 'ૃ', 'ó': 'ે', 'ô': 'ૈ', 'õ': 'ો', 'ö': 'ૌ', '÷': 'ં',
+    'ø': 'ઃ', 'ù': '્', '±': 'ા', 'º': 'ુ', '»': 'ૂ', '«': 'ે', '¬': 'ો', 'ˆ': 'ં', '˜': 'ં', '‰': 'ં',
+    'Ï0': 'ધો', 'Î0': 'ગો', 'Ò0': 'જો', 'Ì0': 'કો', 'é0': 'સો', 'â0': 'મો', 'Ù0': 'તો'
+}
+
+def fix_legacy_gujarati_text(text: str) -> str:
+    """
+    Detects and converts legacy Gujarati font encodings (Gopika/Harikrishna/Akruti)
+    to clean, searchable Gujarati Unicode characters.
+    """
+    if not text:
+        return text
+
+    # Check if text contains high density of garbled legacy characters
+    legacy_char_count = sum(1 for c in text if c in LEGACY_GUJARATI_MAP or ord(c) > 160)
+    if legacy_char_count / max(1, len(text)) < 0.05:
+        return text # Standard English or already Unicode text
+
+    # Handle pre-consonant 'i' matra (fî / fi / fï)
+    text = re.sub(r'f[iîï]([\u00A0-\u00FF|a-zA-Z])', r'\1િ', text)
+
+    # Replace character mappings
+    converted = []
+    i = 0
+    while i < len(text):
+        # Two character match check
+        if i + 1 < len(text) and text[i:i+2] in LEGACY_GUJARATI_MAP:
+            converted.append(LEGACY_GUJARATI_MAP[text[i:i+2]])
+            i += 2
+        elif text[i] in LEGACY_GUJARATI_MAP:
+            converted.append(LEGACY_GUJARATI_MAP[text[i]])
+            i += 1
+        else:
+            converted.append(text[i])
+            i += 1
+
+    result = "".join(converted)
+    # Clean up non-printable control characters
+    result = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', result)
+    return result
+
+
 def extract_metadata_from_filename(filename: str) -> Tuple[str, str, str]:
     clean_name = Path(filename).stem
     
@@ -36,7 +86,7 @@ def extract_metadata_from_filename(filename: str) -> Tuple[str, str, str]:
     subjects = [
         "Science", "Mathematics", "Maths", "Social Science", "Physics", 
         "Chemistry", "Biology", "English", "Gujarati", "Hindi", "History", 
-        "Geography", "Economics", "Civics", "Accountancy", "Business"
+        "Geography", "Economics", "Civics", "Accountancy", "Business", "GruhVigyan"
     ]
     detected_subject = "General"
     for sub in subjects:
@@ -57,7 +107,7 @@ class PDFBookParser:
     def parse(self, progress_callback=None) -> List[PageContent]:
         pages = []
         
-        # 1. Try PyMuPDF (fitz) - High speed C++ engine (0.3s for 300 pages, ultra-low RAM)
+        # 1. Try PyMuPDF (fitz) - High speed C++ engine
         try:
             import fitz
             doc = fitz.open(str(self.file_path))
@@ -70,6 +120,7 @@ class PDFBookParser:
 
                 raw_text = page.get_text("text") or ""
                 cleaned_text = re.sub(r'[ \t]+', ' ', raw_text).strip()
+                cleaned_text = fix_legacy_gujarati_text(cleaned_text)
                 
                 if cleaned_text:
                     pages.append(PageContent(
@@ -96,6 +147,7 @@ class PDFBookParser:
 
                     raw_text = page.extract_text() or ""
                     cleaned_text = re.sub(r'[ \t]+', ' ', raw_text).strip()
+                    cleaned_text = fix_legacy_gujarati_text(cleaned_text)
                     
                     if cleaned_text:
                         pages.append(PageContent(
