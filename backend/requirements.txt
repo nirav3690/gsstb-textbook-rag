@@ -13,3 +13,4 @@ flashrank>=0.2.0
 langchain-text-splitters>=0.0.1
 requests>=2.31.0
 httpx>=0.26.0
+streamlit>=1.30.0
