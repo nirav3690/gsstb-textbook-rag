@@ -41,7 +41,7 @@ class RAGGenerator:
         return key
 
     def _call_gemini(self, system_prompt: str, user_prompt: str, api_key: str = "") -> str:
-        key = api_key or self._get_gemini_key()
+        key = (api_key or self._get_gemini_key()).strip()
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={key}"
         payload = {
             "contents": [
@@ -54,8 +54,14 @@ class RAGGenerator:
             "generationConfig": {"temperature": 0.1}
         }
         resp = requests.post(url, json=payload, timeout=30)
-        resp.raise_for_status()
-        return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+        if resp.status_code != 200:
+            raise ValueError(f"Google API HTTP {resp.status_code}: {resp.text[:250]}")
+        
+        result = resp.json()
+        try:
+            return result["candidates"][0]["content"]["parts"][0]["text"]
+        except (KeyError, IndexError) as e:
+            raise ValueError(f"Unexpected response format from Gemini API: {result}")
 
     def _fallback_extractive_answer(self, query: str, context_chunks: List[Tuple[Chunk, float]]) -> str:
         """
@@ -94,6 +100,7 @@ class RAGGenerator:
         target_language: str = "English",
         **kwargs
     ) -> ChatResponse:
+        self.last_error = ""
         # Check if context chunks exist or are too weak
         if not context_chunks:
             return ChatResponse(
@@ -158,10 +165,14 @@ class RAGGenerator:
                 answer = self._call_gemini(system_prompt, user_prompt, api_key=gemini_key)
             except Exception as e:
                 print(f"[Generator] Gemini call failed: {e}")
+                self.last_error = str(e)
 
         # Local Extractive Fallback
         if not answer:
-            answer = self._fallback_extractive_answer(query, context_chunks)
+            if getattr(self, 'last_error', ''):
+                answer = f"⚠️ **Gemini API Error**: `{self.last_error}`\n\n" + self._fallback_extractive_answer(query, context_chunks)
+            else:
+                answer = self._fallback_extractive_answer(query, context_chunks)
 
         if REFUSAL_MESSAGE.lower() in answer.lower():
             is_grounded = False
