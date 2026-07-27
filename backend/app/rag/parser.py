@@ -58,12 +58,16 @@ class PDFBookParser:
         self.file_path = Path(file_path)
         self.book_name, self.standard, self.subject = extract_metadata_from_filename(self.file_path.name)
 
-    def parse(self) -> List[PageContent]:
+    def parse(self, progress_callback=None) -> List[PageContent]:
         pages = []
         reader = PdfReader(str(self.file_path))
+        total_pages = len(reader.pages)
         
         for idx, page in enumerate(reader.pages):
             page_num = idx + 1
+            if progress_callback and (idx % 5 == 0 or idx == total_pages - 1):
+                progress_callback(page_num, total_pages)
+
             raw_text = page.extract_text() or ""
             # Clean up whitespace and boilerplate line breaks
             cleaned_text = re.sub(r'[ \t]+', ' ', raw_text).strip()

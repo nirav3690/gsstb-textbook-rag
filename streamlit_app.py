@@ -88,9 +88,13 @@ with st.sidebar:
                 f.write(uploaded_file.getbuffer())
             
             try:
-                progress_bar.progress(25, text="Parsing PDF pages & extracting text...")
                 parser = PDFBookParser(str(save_path))
-                pages = parser.parse()
+                
+                def update_pdf_progress(current_page, total_pages):
+                    pct = int(5 + (current_page / max(1, total_pages)) * 45)
+                    progress_bar.progress(pct, text=f"Parsing page {current_page} of {total_pages}...")
+
+                pages = parser.parse(progress_callback=update_pdf_progress)
                 
                 if not pages:
                     st.error("⚠️ Could not extract text from this PDF. It may be a scanned image PDF without a text layer.")
