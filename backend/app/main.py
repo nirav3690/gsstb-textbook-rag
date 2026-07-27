@@ -62,7 +62,7 @@ def health_check():
 
 
 @app.post("/api/upload", response_model=IngestionResponse)
-async def upload_textbook(file: UploadFile = File(...)):
+def upload_textbook(file: UploadFile = File(...)):
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF textbook files are supported.")
 
