@@ -98,6 +98,7 @@ class RAGGenerator:
         conversation_history: str = "",
         session_id: str = "default",
         target_language: str = "English",
+        gemini_api_key: str = "",
         **kwargs
     ) -> ChatResponse:
         self.last_error = ""
@@ -159,18 +160,20 @@ class RAGGenerator:
             except Exception as e:
                 print(f"[Generator] OpenAI call failed: {e}")
 
-        gemini_key = self._get_gemini_key()
+        gemini_key = (gemini_api_key or self.gemini_key or self._get_gemini_key()).strip()
         if not answer and gemini_key:
             try:
                 answer = self._call_gemini(system_prompt, user_prompt, api_key=gemini_key)
             except Exception as e:
                 print(f"[Generator] Gemini call failed: {e}")
                 self.last_error = str(e)
+        elif not answer and not gemini_key:
+            self.last_error = "No Gemini API Key found. Please enter your Gemini API key in the sidebar."
 
         # Local Extractive Fallback
         if not answer:
             if getattr(self, 'last_error', ''):
-                answer = f"⚠️ **Gemini API Error**: `{self.last_error}`\n\n" + self._fallback_extractive_answer(query, context_chunks)
+                answer = f"⚠️ **Gemini API Status**: `{self.last_error}`\n\n" + self._fallback_extractive_answer(query, context_chunks)
             else:
                 answer = self._fallback_extractive_answer(query, context_chunks)
 

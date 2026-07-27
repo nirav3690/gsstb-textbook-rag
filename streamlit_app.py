@@ -88,12 +88,14 @@ with st.sidebar:
         "Gemini API Key:",
         type="password",
         value=default_key,
+        key="gemini_api_key_widget",
         help="Enter your Gemini API key to enable automatic OCR for legacy Gujarati font PDFs and AI answer generation."
     )
-    if api_key_input:
-        os.environ["GEMINI_API_KEY"] = api_key_input.strip()
-        settings.GEMINI_API_KEY = api_key_input.strip()
-        generator.gemini_key = api_key_input.strip()
+    active_gemini_key = st.session_state.get("gemini_api_key_widget", "").strip() or api_key_input.strip()
+    if active_gemini_key:
+        os.environ["GEMINI_API_KEY"] = active_gemini_key
+        settings.GEMINI_API_KEY = active_gemini_key
+        generator.gemini_key = active_gemini_key
 
     st.divider()
     st.subheader("📤 Upload Textbook PDF")
@@ -232,7 +234,8 @@ if prompt := st.chat_input("Ask a question from GSSTB textbooks..."):
                     query=prompt,
                     context_chunks=top_chunks,
                     session_id="streamlit_session",
-                    target_language=answer_lang
+                    target_language=answer_lang,
+                    gemini_api_key=active_gemini_key
                 )
             except TypeError:
                 st.cache_resource.clear()
@@ -242,7 +245,8 @@ if prompt := st.chat_input("Ask a question from GSSTB textbooks..."):
                     query=prompt,
                     context_chunks=top_chunks,
                     session_id="streamlit_session",
-                    target_language=answer_lang
+                    target_language=answer_lang,
+                    gemini_api_key=active_gemini_key
                 )
             
             st.markdown(response.answer)
