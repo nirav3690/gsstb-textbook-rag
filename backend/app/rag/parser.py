@@ -23,10 +23,6 @@ class PageContent:
 
 
 def extract_metadata_from_filename(filename: str) -> Tuple[str, str, str]:
-    """
-    Extracts book_name, standard (e.g. Std 9..12), and subject from filename or title.
-    Examples: 'Std_10_Science_GSSTB.pdf', 'Class_11_Physics_Ch1.pdf'
-    """
     clean_name = Path(filename).stem
     
     # Standard detection
@@ -60,16 +56,19 @@ class PDFBookParser:
 
     def parse(self, progress_callback=None) -> List[PageContent]:
         pages = []
+        
+        # 1. Try PyMuPDF (fitz) - High speed C++ engine (0.3s for 300 pages, ultra-low RAM)
         try:
-            reader = PdfReader(str(self.file_path))
-            total_pages = len(reader.pages)
+            import fitz
+            doc = fitz.open(str(self.file_path))
+            total_pages = len(doc)
             
-            for idx, page in enumerate(reader.pages):
+            for idx, page in enumerate(doc):
                 page_num = idx + 1
-                if progress_callback and (idx % 5 == 0 or idx == total_pages - 1):
+                if progress_callback and (idx % 10 == 0 or idx == total_pages - 1):
                     progress_callback(page_num, total_pages)
 
-                raw_text = page.extract_text() or ""
+                raw_text = page.get_text("text") or ""
                 cleaned_text = re.sub(r'[ \t]+', ' ', raw_text).strip()
                 
                 if cleaned_text:
@@ -80,32 +79,33 @@ class PDFBookParser:
                         standard=self.standard,
                         subject=self.subject
                     ))
+            doc.close()
         except Exception as e:
-            print(f"pypdf extraction error: {e}")
+            print(f"PyMuPDF extraction error: {e}")
 
-        # Fallback to pdfplumber if pypdf extracted no text
+        # 2. Fallback to PyPDF if PyMuPDF extracted no text
         if not pages:
             try:
-                import pdfplumber
-                with pdfplumber.open(str(self.file_path)) as pdf:
-                    total_pages = len(pdf.pages)
-                    for idx, page in enumerate(pdf.pages):
-                        page_num = idx + 1
-                        if progress_callback and (idx % 5 == 0 or idx == total_pages - 1):
-                            progress_callback(page_num, total_pages)
+                reader = PdfReader(str(self.file_path))
+                total_pages = len(reader.pages)
+                
+                for idx, page in enumerate(reader.pages):
+                    page_num = idx + 1
+                    if progress_callback and (idx % 10 == 0 or idx == total_pages - 1):
+                        progress_callback(page_num, total_pages)
 
-                        raw_text = page.extract_text() or ""
-                        cleaned_text = re.sub(r'[ \t]+', ' ', raw_text).strip()
-                        
-                        if cleaned_text:
-                            pages.append(PageContent(
-                                page_number=page_num,
-                                text=cleaned_text,
-                                book_name=self.book_name,
-                                standard=self.standard,
-                                subject=self.subject
-                            ))
+                    raw_text = page.extract_text() or ""
+                    cleaned_text = re.sub(r'[ \t]+', ' ', raw_text).strip()
+                    
+                    if cleaned_text:
+                        pages.append(PageContent(
+                            page_number=page_num,
+                            text=cleaned_text,
+                            book_name=self.book_name,
+                            standard=self.standard,
+                            subject=self.subject
+                        ))
             except Exception as e:
-                print(f"pdfplumber extraction error: {e}")
+                print(f"pypdf extraction error: {e}")
 
         return pages
