@@ -94,13 +94,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 body: formData
             });
-
-            if (!res.ok) {
-                const errData = await res.json();
-                throw new Error(errData.detail || 'Upload failed');
+            const responseText = await res.text();
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch (jsonErr) {
+                throw new Error(`Server returned status ${res.status}: ${responseText || 'Empty response'}`);
             }
 
-            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.detail || `Upload failed with status ${res.status}`);
+            }
+
             alert(`Success: ${data.message}\nBook: ${data.book_name}\nPages: ${data.pages_processed}\nChunks: ${data.chunks_created}`);
             uploadModal.classList.remove('active');
             loadDocuments();
