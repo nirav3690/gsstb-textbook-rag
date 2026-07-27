@@ -129,8 +129,19 @@ with st.sidebar:
     
     if books:
         for bname, meta in books.items():
-            st.markdown(f"**📖 {bname}**")
-            st.caption(f"🏷️ {meta['std']} | {meta['sub']} | 📄 {len(meta['pages'])} Pages")
+            col_b1, col_b2 = st.columns([4, 1])
+            with col_b1:
+                st.markdown(f"**📖 {bname}**")
+                st.caption(f"🏷️ {meta['std']} | {meta['sub']} | 📄 {len(meta['pages'])} Pages")
+            with col_b2:
+                if st.button("🗑️", key=f"del_{bname}", help=f"Delete {bname}"):
+                    vectorstore.delete_book(bname)
+                    remaining = vectorstore.get_all_chunks()
+                    bm25_index.clear()
+                    if remaining:
+                        bm25_index.add_chunks(remaining)
+                    st.success(f"Deleted '{bname}'")
+                    st.rerun()
     else:
         st.info("No textbooks indexed yet. Upload a PDF above.")
 
