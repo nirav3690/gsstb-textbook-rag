@@ -77,26 +77,6 @@ with st.sidebar:
     st.title("📚 GSSTB RAG System")
     st.caption("Gujarat Board Std 9–12 AI Tutor")
     
-    st.subheader("🔑 API Settings")
-    default_key = ""
-    try:
-        default_key = os.getenv("GEMINI_API_KEY", "") or (st.secrets.get("GEMINI_API_KEY", "") if hasattr(st, "secrets") else "")
-    except Exception:
-        pass
-        
-    api_key_input = st.text_input(
-        "Gemini API Key:",
-        type="password",
-        value=default_key,
-        key="gemini_api_key_widget",
-        help="Enter your Gemini API key to enable automatic OCR for legacy Gujarati font PDFs and AI answer generation."
-    )
-    active_gemini_key = st.session_state.get("gemini_api_key_widget", "").strip() or api_key_input.strip()
-    if active_gemini_key:
-        os.environ["GEMINI_API_KEY"] = active_gemini_key
-        settings.GEMINI_API_KEY = active_gemini_key
-        generator.gemini_key = active_gemini_key
-
     st.divider()
     st.subheader("📤 Upload Textbook PDF")
     uploaded_file = st.file_uploader("Choose a GSSTB PDF Textbook", type=["pdf"])
@@ -185,14 +165,12 @@ with st.sidebar:
 st.title("💬 Textbook Conversational Assistant")
 st.markdown("Ask questions strictly based on uploaded Gujarat State Board textbooks.")
 
-# Filter & Language Controls
-col1, col2, col3 = st.columns(3)
+# Filter Controls
+col1, col2 = st.columns(2)
 with col1:
     filter_std = st.selectbox("Standard Filter:", ["All Standards", "Std 9", "Std 10", "Std 11", "Std 12"])
 with col2:
     filter_sub = st.selectbox("Subject Filter:", ["All Subjects", "Science", "Mathematics", "Social Science", "Physics", "Chemistry", "Biology", "GruhVigyan"])
-with col3:
-    answer_lang = st.selectbox("Answer Language:", ["English", "Gujarati", "Same as Question"])
 
 std_val = None if filter_std == "All Standards" else filter_std
 sub_val = None if filter_sub == "All Subjects" else filter_sub
@@ -234,8 +212,7 @@ if prompt := st.chat_input("Ask a question from GSSTB textbooks..."):
                     query=prompt,
                     context_chunks=top_chunks,
                     session_id="streamlit_session",
-                    target_language=answer_lang,
-                    gemini_api_key=active_gemini_key
+                    target_language="English"
                 )
             except TypeError:
                 st.cache_resource.clear()
@@ -245,8 +222,7 @@ if prompt := st.chat_input("Ask a question from GSSTB textbooks..."):
                     query=prompt,
                     context_chunks=top_chunks,
                     session_id="streamlit_session",
-                    target_language=answer_lang,
-                    gemini_api_key=active_gemini_key
+                    target_language="English"
                 )
             
             st.markdown(response.answer)

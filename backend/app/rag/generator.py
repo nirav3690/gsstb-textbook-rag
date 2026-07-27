@@ -98,7 +98,6 @@ class RAGGenerator:
         conversation_history: str = "",
         session_id: str = "default",
         target_language: str = "English",
-        gemini_api_key: str = "",
         **kwargs
     ) -> ChatResponse:
         self.last_error = ""
@@ -131,17 +130,11 @@ class RAGGenerator:
 
         context_str = "\n\n".join(context_blocks)
 
-        lang_instruction = "Write your answer in clear, fluent ENGLISH."
-        if target_language == "Gujarati":
-            lang_instruction = "Write your answer in clear GUJARATI UNICODE (ગુજરાતી) script."
-        elif target_language == "Same as Question":
-            lang_instruction = "Write your answer in the same language as the user's question."
-
         system_prompt = (
             "You are an expert AI tutor for Gujarat State School Board (GSSTB) textbooks.\n"
             "STRICT RULES:\n"
             "1. Answer the user question STRICTLY using only the provided textbook context snippets.\n"
-            f"2. {lang_instruction} Even if the textbook snippets are in Gujarati or contain legacy encoding symbols, translate the underlying facts and provide a clean, complete response in the requested target language.\n"
+            "2. Write your response in clear, fluent ENGLISH. Even if the textbook snippets are in Gujarati or contain legacy font symbols, translate the underlying facts and provide a clean, complete response in English.\n"
             "3. If the answer CANNOT be directly found in or inferred from the provided snippets, respond EXACTLY with:\n"
             f"'{REFUSAL_MESSAGE}'\n"
             "4. Do NOT use any external or prior knowledge outside the context snippets.\n"
