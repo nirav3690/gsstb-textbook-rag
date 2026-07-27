@@ -37,25 +37,28 @@ LEGACY_GUJARATI_MAP = {
 
 def fix_legacy_gujarati_text(text: str) -> str:
     """
-    Detects and converts legacy Gujarati font encodings (Gopika/Harikrishna/Akruti)
+    Detects and converts legacy Gujarati font encodings (Gopika/Harikrishna/Akruti/Shruti)
     to clean, searchable Gujarati Unicode characters.
     """
     if not text:
         return text
 
-    # Check if text contains high density of garbled legacy characters
-    legacy_char_count = sum(1 for c in text if c in LEGACY_GUJARATI_MAP or ord(c) > 160)
-    if legacy_char_count / max(1, len(text)) < 0.05:
-        return text # Standard English or already Unicode text
+    # Handle pre-consonant and post-consonant 'i' matras (fi / fî / fï / lfii)
+    text = re.sub(r'lfii', 'િ', text)
+    text = re.sub(r'f[iîï]([\u00A0-\u00FF|\u0A80-\u0AFF|a-zA-Z])', r'\1િ', text)
+    text = re.sub(r'([\u0A80-\u0AFF])f[iîï]', r'\1િ', text)
+    text = re.sub(r'([\u0A80-\u0AFF])fi', r'\1િ', text)
 
-    # Handle pre-consonant 'i' matra (fî / fi / fï)
-    text = re.sub(r'f[iîï]([\u00A0-\u00FF|a-zA-Z])', r'\1િ', text)
+    # Legacy character fixes
+    text = re.sub(r'ગ<', 'ગ', text)
+    text = re.sub(r'◦', ' ', text)
+    text = re.sub(r'\|', '', text)
+    text = re.sub(r'/ં', 'ં', text)
 
     # Replace character mappings
     converted = []
     i = 0
     while i < len(text):
-        # Two character match check
         if i + 1 < len(text) and text[i:i+2] in LEGACY_GUJARATI_MAP:
             converted.append(LEGACY_GUJARATI_MAP[text[i:i+2]])
             i += 2
@@ -67,8 +70,9 @@ def fix_legacy_gujarati_text(text: str) -> str:
             i += 1
 
     result = "".join(converted)
-    # Clean up non-printable control characters
+    # Clean up non-printable control characters and duplicate whitespace
     result = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', result)
+    result = re.sub(r'[ \t]+', ' ', result)
     return result
 
 
