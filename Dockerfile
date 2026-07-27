@@ -2,6 +2,18 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
+# Set low-memory environment variables for PyTorch & NumPy on 512MB RAM free instances
+ENV OMP_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1 \
+    VECLIB_MAXIMUM_THREADS=1 \
+    NUMEXPR_NUM_THREADS=1 \
+    PYTHONUNBUFFERED=1 \
+    HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH \
+    PYTHONPATH=/app/backend \
+    PORT=7860
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -10,16 +22,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Create user with UID 1000 for non-root runtime environments
 RUN useradd -m -u 1000 user
-ENV HOME=/home/user \
-    PATH=/home/user/.local/bin:$PATH \
-    PYTHONPATH=/app/backend \
-    PORT=7860
 
-# Copy requirements & install dependencies (using CPU PyTorch for lightweight cloud builds)
+# Copy requirements & install dependencies
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
 
-# Pre-download lightweight 90MB embedding model during build time so upload is instant
+# Pre-download 90MB embedding model during build time
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
 
 # Copy application files
@@ -34,4 +42,4 @@ USER user
 
 EXPOSE 7860
 
-CMD sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7860}"
+CMD sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7860} --workers 1"

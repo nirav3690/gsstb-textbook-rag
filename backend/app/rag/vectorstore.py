@@ -35,6 +35,8 @@ class VectorStoreManager:
                 metadatas=metadatas,
                 ids=ids
             )
+        import gc
+        gc.collect()
 
     def search(
         self, 
