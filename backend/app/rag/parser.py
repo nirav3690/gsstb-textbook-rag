@@ -141,6 +141,7 @@ class PDFBookParser:
         OCR fallback for legacy Gujarati font PDFs.
         Renders each page as a high-res image, then uses Gemini API for OCR.
         """
+        pages = []
         gemini_key = os.getenv("GEMINI_API_KEY", "") or getattr(settings, "GEMINI_API_KEY", "")
         if not gemini_key:
             try:
