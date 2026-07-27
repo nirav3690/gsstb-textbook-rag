@@ -79,7 +79,8 @@ class RAGGenerator:
         query: str,
         context_chunks: List[Tuple[Chunk, float]],
         conversation_history: str = "",
-        session_id: str = "default"
+        session_id: str = "default",
+        target_language: str = "English"
     ) -> ChatResponse:
         # Check if context chunks exist or are too weak
         if not context_chunks:
@@ -110,14 +111,21 @@ class RAGGenerator:
 
         context_str = "\n\n".join(context_blocks)
 
+        lang_instruction = "Write your answer in clear, fluent ENGLISH."
+        if target_language == "Gujarati":
+            lang_instruction = "Write your answer in clear GUJARATI UNICODE (ગુજરાતી) script."
+        elif target_language == "Same as Question":
+            lang_instruction = "Write your answer in the same language as the user's question."
+
         system_prompt = (
             "You are an expert AI tutor for Gujarat State School Board (GSSTB) textbooks.\n"
             "STRICT RULES:\n"
             "1. Answer the user question STRICTLY using only the provided textbook context snippets.\n"
-            "2. If the answer CANNOT be directly found in or inferred from the provided snippets, respond EXACTLY with:\n"
+            f"2. {lang_instruction} Even if the textbook snippets are in Gujarati, translate the facts and provide the complete response in the requested target language.\n"
+            "3. If the answer CANNOT be directly found in or inferred from the provided snippets, respond EXACTLY with:\n"
             f"'{REFUSAL_MESSAGE}'\n"
-            "3. Do NOT use any external or prior knowledge outside the context snippets.\n"
-            "4. Cite the textbook name and page number when stating facts."
+            "4. Do NOT use any external or prior knowledge outside the context snippets.\n"
+            "5. Cite the textbook name and page number when stating facts."
         )
 
         user_prompt = f"Previous Conversation Context:\n{conversation_history}\n\nTextbook Context Snippets:\n{context_str}\n\nUser Question: {query}\n\nAnswer:"

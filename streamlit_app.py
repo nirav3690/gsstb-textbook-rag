@@ -183,12 +183,14 @@ with st.sidebar:
 st.title("💬 Textbook Conversational Assistant")
 st.markdown("Ask questions strictly based on uploaded Gujarat State Board textbooks.")
 
-# Filter Controls
-col1, col2 = st.columns(2)
+# Filter & Language Controls
+col1, col2, col3 = st.columns(3)
 with col1:
     filter_std = st.selectbox("Standard Filter:", ["All Standards", "Std 9", "Std 10", "Std 11", "Std 12"])
 with col2:
-    filter_sub = st.selectbox("Subject Filter:", ["All Subjects", "Science", "Mathematics", "Social Science", "Physics", "Chemistry", "Biology"])
+    filter_sub = st.selectbox("Subject Filter:", ["All Subjects", "Science", "Mathematics", "Social Science", "Physics", "Chemistry", "Biology", "GruhVigyan"])
+with col3:
+    answer_lang = st.selectbox("Answer Language:", ["English", "Gujarati", "Same as Question"])
 
 std_val = None if filter_std == "All Standards" else filter_std
 sub_val = None if filter_sub == "All Subjects" else filter_sub
@@ -228,7 +230,8 @@ if prompt := st.chat_input("Ask a question from GSSTB textbooks..."):
             response = generator.generate_response(
                 query=prompt,
                 context_chunks=top_chunks,
-                session_id="streamlit_session"
+                session_id="streamlit_session",
+                target_language=answer_lang
             )
             
             st.markdown(response.answer)
