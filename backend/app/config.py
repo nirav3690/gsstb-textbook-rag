@@ -25,7 +25,7 @@ class Settings:
     UPLOAD_DIR: Path = UPLOAD_DIR
     
     # Embeddings & Reranking
-    EMBEDDING_MODEL_NAME: str = os.getenv("EMBEDDING_MODEL_NAME", "paraphrase-multilingual-MiniLM-L12-v2")
+    EMBEDDING_MODEL_NAME: str = os.getenv("EMBEDDING_MODEL_NAME", "all-MiniLM-L6-v2")
     
     # RAG Parameters
     CHUNK_SIZE: int = int(os.getenv("CHUNK_SIZE", 600))
