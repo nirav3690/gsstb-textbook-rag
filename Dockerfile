@@ -15,9 +15,9 @@ ENV HOME=/home/user \
     PYTHONPATH=/app/backend \
     PORT=7860
 
-# Copy requirements & install dependencies
+# Copy requirements & install dependencies (using CPU PyTorch for lightweight cloud builds)
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
 
 # Copy application files
 COPY --chown=user:user backend /app/backend
