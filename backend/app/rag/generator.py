@@ -30,8 +30,19 @@ class RAGGenerator:
         resp.raise_for_status()
         return resp.json()["choices"][0]["message"]["content"]
 
-    def _call_gemini(self, system_prompt: str, user_prompt: str) -> str:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.gemini_key}"
+    def _get_gemini_key(self) -> str:
+        key = self.gemini_key or os.getenv("GEMINI_API_KEY", "") or getattr(settings, "GEMINI_API_KEY", "")
+        if not key:
+            try:
+                import streamlit as st
+                key = st.secrets.get("GEMINI_API_KEY", "")
+            except Exception:
+                pass
+        return key
+
+    def _call_gemini(self, system_prompt: str, user_prompt: str, api_key: str = "") -> str:
+        key = api_key or self._get_gemini_key()
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={key}"
         payload = {
             "contents": [
                 {
@@ -122,7 +133,7 @@ class RAGGenerator:
             "You are an expert AI tutor for Gujarat State School Board (GSSTB) textbooks.\n"
             "STRICT RULES:\n"
             "1. Answer the user question STRICTLY using only the provided textbook context snippets.\n"
-            f"2. {lang_instruction} Even if the textbook snippets are in Gujarati, translate the facts and provide the complete response in the requested target language.\n"
+            f"2. {lang_instruction} Even if the textbook snippets are in Gujarati or contain legacy encoding symbols, translate the underlying facts and provide a clean, complete response in the requested target language.\n"
             "3. If the answer CANNOT be directly found in or inferred from the provided snippets, respond EXACTLY with:\n"
             f"'{REFUSAL_MESSAGE}'\n"
             "4. Do NOT use any external or prior knowledge outside the context snippets.\n"
@@ -141,9 +152,10 @@ class RAGGenerator:
             except Exception as e:
                 print(f"[Generator] OpenAI call failed: {e}")
 
-        if not answer and self.gemini_key:
+        gemini_key = self._get_gemini_key()
+        if not answer and gemini_key:
             try:
-                answer = self._call_gemini(system_prompt, user_prompt)
+                answer = self._call_gemini(system_prompt, user_prompt, api_key=gemini_key)
             except Exception as e:
                 print(f"[Generator] Gemini call failed: {e}")
 
