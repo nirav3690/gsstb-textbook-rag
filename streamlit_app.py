@@ -3,8 +3,8 @@ import sys
 from pathlib import Path
 import streamlit as st
 
-# Add backend directory to sys.path
-sys.path.append(str(Path(__file__).resolve().parent / "backend"))
+# Add backend directory to sys.path (insert at position 0 to prioritize over CWD)
+sys.path.insert(0, str(Path(__file__).resolve().parent / "backend"))
 
 from app.rag.parser import PDFBookParser
 from app.rag.chunker import MetadataPreservingChunker
