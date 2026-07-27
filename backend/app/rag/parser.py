@@ -52,29 +52,25 @@ def extract_metadata_from_filename(filename: str) -> Tuple[str, str, str]:
 def _is_garbled_text(text: str) -> bool:
     """
     Detect if extracted text is garbled (legacy font encoding issue).
-    Garbled text from legacy Gujarati fonts has a mix of random ASCII symbols
-    and partial Gujarati characters that don't form real words.
+    Garbled text from legacy Gujarati fonts has a high ratio of extended ASCII symbols
+    (Latin-1 Supplement: U+0080 to U+00FF, e.g. ï, Á, fî, ¿, Õ, Ï, ò, Ì, ÷, œ, ê, ›, ÿ).
     """
     if not text or len(text) < 20:
         return False
     
-    # Count Gujarati Unicode characters (U+0A80 - U+0AFF)
-    gujarati_chars = sum(1 for c in text if '\u0A80' <= c <= '\u0AFF')
-    ascii_nonalpha = sum(1 for c in text if c in '<>&|_/\\~`^{}[]@#$%*+=')
     total = len(text.replace(' ', '').replace('\n', ''))
-    
     if total == 0:
         return False
+
+    # Count extended ASCII / Latin-1 Supplement characters and legacy ligatures (fi, fl, ‹, ›)
+    extended_ascii_count = sum(
+        1 for c in text 
+        if ('\u0080' <= c <= '\u00FF') or (c in '¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ‹›')
+    )
     
-    # If text has SOME Gujarati but also heavy ASCII noise, it's garbled
-    guj_ratio = gujarati_chars / total
-    noise_ratio = ascii_nonalpha / total
-    
-    # Garbled: has Gujarati chars mixed with lots of ASCII noise symbols
-    if 0.05 < guj_ratio < 0.6 and noise_ratio > 0.05:
-        return True
-    
-    return False
+    ratio = extended_ascii_count / total
+    # If more than 4% of the text consists of extended ASCII symbols, it's garbled legacy font
+    return ratio > 0.04
 
 
 class PDFBookParser:
@@ -145,11 +141,16 @@ class PDFBookParser:
         OCR fallback for legacy Gujarati font PDFs.
         Renders each page as a high-res image, then uses Gemini API for OCR.
         """
-        pages = []
-        gemini_key = os.getenv("GEMINI_API_KEY", "")
+        gemini_key = os.getenv("GEMINI_API_KEY", "") or getattr(settings, "GEMINI_API_KEY", "")
+        if not gemini_key:
+            try:
+                import streamlit as st
+                gemini_key = st.secrets.get("GEMINI_API_KEY", "")
+            except Exception:
+                pass
         
         if not gemini_key:
-            print("OCR skipped: No GEMINI_API_KEY set for vision OCR")
+            print("OCR skipped: No GEMINI_API_KEY found in env, settings, or Streamlit Secrets")
             return pages
         
         try:

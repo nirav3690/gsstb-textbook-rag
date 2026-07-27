@@ -76,6 +76,24 @@ with st.sidebar:
     st.title("📚 GSSTB RAG System")
     st.caption("Gujarat Board Std 9–12 AI Tutor")
     
+    st.subheader("🔑 API Settings")
+    default_key = ""
+    try:
+        default_key = os.getenv("GEMINI_API_KEY", "") or (st.secrets.get("GEMINI_API_KEY", "") if hasattr(st, "secrets") else "")
+    except Exception:
+        pass
+        
+    api_key_input = st.text_input(
+        "Gemini API Key:",
+        type="password",
+        value=default_key,
+        help="Enter your Gemini API key to enable automatic OCR for legacy Gujarati font PDFs and AI answer generation."
+    )
+    if api_key_input:
+        os.environ["GEMINI_API_KEY"] = api_key_input.strip()
+        settings.GEMINI_API_KEY = api_key_input.strip()
+        generator.gemini_key = api_key_input.strip()
+
     st.divider()
     st.subheader("📤 Upload Textbook PDF")
     uploaded_file = st.file_uploader("Choose a GSSTB PDF Textbook", type=["pdf"])
