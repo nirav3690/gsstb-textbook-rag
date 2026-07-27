@@ -23,16 +23,18 @@ class VectorStoreManager:
         if not chunks:
             return
 
-        documents = [c.text for c in chunks]
-        metadatas = [c.to_metadata() for c in chunks]
-        ids = [c.chunk_id for c in chunks]
+        batch_size = 50
+        for i in range(0, len(chunks), batch_size):
+            batch = chunks[i:i + batch_size]
+            documents = [c.text for c in batch]
+            metadatas = [c.to_metadata() for c in batch]
+            ids = [c.chunk_id for c in batch]
 
-        # Batch upsert into ChromaDB
-        self.collection.upsert(
-            documents=documents,
-            metadatas=metadatas,
-            ids=ids
-        )
+            self.collection.upsert(
+                documents=documents,
+                metadatas=metadatas,
+                ids=ids
+            )
 
     def search(
         self, 
