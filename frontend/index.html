@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GSSTB Textbook Conversational RAG System</title>
+    <!-- Google Fonts & Font Awesome Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="dark-theme">
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="brand-header">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-book-bookmark"></i>
+                </div>
+                <div class="brand-title">
+                    <h2>GSSTB RAG</h2>
+                    <span>Gujarat Board AI Tutor</span>
+                </div>
+            </div>
+
+            <!-- New Chat Action -->
+            <button id="new-chat-btn" class="btn btn-primary btn-block">
+                <i class="fa-solid fa-plus"></i> New Conversation
+            </button>
+
+            <!-- Knowledge Base Library Section -->
+            <div class="sidebar-section">
+                <div class="section-header">
+                    <h3><i class="fa-solid fa-database"></i> Knowledge Base</h3>
+                    <button id="upload-modal-btn" class="icon-btn" title="Upload PDF">
+                        <i class="fa-solid fa-file-circle-plus"></i>
+                    </button>
+                </div>
+                <div id="books-list" class="books-list">
+                    <div class="loading-state">
+                        <i class="fa-solid fa-spinner fa-spin"></i> Loading textbooks...
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Stats -->
+            <div class="sidebar-footer">
+                <div class="stat-pill">
+                    <span id="stat-docs"><i class="fa-solid fa-book"></i> 0 Books</span>
+                    <span id="stat-chunks"><i class="fa-solid fa-cubes"></i> 0 Chunks</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="main-content">
+            <!-- Top Navbar -->
+            <header class="top-navbar">
+                <div class="navbar-left">
+                    <h1 class="page-title">Textbook Conversational Assistant</h1>
+                    <span class="badge badge-success"><i class="fa-solid fa-shield-halved"></i> Strict Grounding Active</span>
+                </div>
+
+                <!-- Query Filters -->
+                <div class="navbar-filters">
+                    <div class="filter-group">
+                        <label><i class="fa-solid fa-graduation-cap"></i> Standard:</label>
+                        <select id="filter-std">
+                            <option value="">All Standards (Std 9–12)</option>
+                            <option value="Std 9">Std 9</option>
+                            <option value="Std 10">Std 10</option>
+                            <option value="Std 11">Std 11</option>
+                            <option value="Std 12">Std 12</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label><i class="fa-solid fa-atom"></i> Subject:</label>
+                        <select id="filter-subject">
+                            <option value="">All Subjects</option>
+                            <option value="Science">Science</option>
+                            <option value="Mathematics">Mathematics</option>
+                            <option value="Social Science">Social Science</option>
+                            <option value="Physics">Physics</option>
+                            <option value="Chemistry">Chemistry</option>
+                            <option value="Biology">Biology</option>
+                        </select>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Messages Window -->
+            <div id="chat-messages" class="chat-messages">
+                <div class="welcome-card glass-panel">
+                    <div class="welcome-icon">
+                        <i class="fa-solid fa-chalkboard-user"></i>
+                    </div>
+                    <h2>Welcome to GSSTB Textbook AI Tutor</h2>
+                    <p>Ask any question from Gujarat State Board Std 9–12 textbooks. Answers are generated <strong>strictly</strong> from uploaded textbooks with exact page citations.</p>
+                    
+                    <div class="sample-queries">
+                        <span class="sample-tag" onclick="useSampleQuery('What is Newton\'s second law of motion?')"><i class="fa-solid fa-lightbulb"></i> Newton's second law</span>
+                        <span class="sample-tag" onclick="useSampleQuery('Explain photosynthesis process')"><i class="fa-solid fa-seedling"></i> Photosynthesis process</span>
+                        <span class="sample-tag" onclick="useSampleQuery('What were the causes of World War 1?')"><i class="fa-solid fa-landmark"></i> World War 1 causes</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Input Area -->
+            <div class="chat-input-container glass-panel">
+                <form id="chat-form">
+                    <input type="text" id="chat-input" placeholder="Ask a question from GSSTB textbooks..." autocomplete="off" required>
+                    <button type="submit" id="send-btn" class="btn btn-send">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <!-- Upload PDF Modal -->
+    <div id="upload-modal" class="modal">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-file-pdf"></i> Upload Textbook PDF</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="drop-zone" class="drop-zone">
+                    <i class="fa-solid fa-cloud-arrow-up drop-icon"></i>
+                    <p>Drag & drop GSSTB PDF textbook here, or <span>browse file</span></p>
+                    <small>Supports Std 9–12 textbooks (PDF format)</small>
+                    <input type="file" id="file-input" accept=".pdf" hidden>
+                </div>
+                <div id="upload-progress" class="upload-progress hidden">
+                    <i class="fa-solid fa-spinner fa-spin"></i> Parsing PDF pages, creating chunks & vector index...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Source Citation Modal Drawer -->
+    <div id="citation-modal" class="modal">
+        <div class="modal-content glass-panel citation-drawer">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-quote-left"></i> Relevant Source Snippets</h3>
+                <span class="close-citation-modal">&times;</span>
+            </div>
+            <div id="citation-modal-body" class="modal-body">
+                <!-- Snippets populated via JS -->
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
