@@ -79,6 +79,7 @@ class PDFBookParser:
         self.book_name, self.standard, self.subject = extract_metadata_from_filename(self.file_path.name)
         self.extraction_method = "unknown"
         self.is_legacy_font = False
+        self.ocr_error = ""
 
     def _extract_with_fitz(self, progress_callback=None) -> List[PageContent]:
         """Primary: PyMuPDF C++ engine text extraction."""
@@ -173,8 +174,8 @@ class PDFBookParser:
                 img_bytes = pix.tobytes("png")
                 img_b64 = base64.b64encode(img_bytes).decode("utf-8")
                 
-                # Call Gemini Vision API for OCR
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
+                # Call Gemini Vision API for OCR (gemini-1.5-flash is supported on all AI Studio keys)
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
                 payload = {
                     "contents": [{
                         "parts": [
@@ -187,7 +188,12 @@ class PDFBookParser:
                 
                 try:
                     resp = requests.post(url, json=payload, timeout=60)
-                    resp.raise_for_status()
+                    if resp.status_code != 200:
+                        err_msg = f"HTTP {resp.status_code}: {resp.text[:200]}"
+                        print(f"OCR API error: {err_msg}")
+                        self.ocr_error = err_msg
+                        break
+                    
                     result = resp.json()
                     ocr_text = result["candidates"][0]["content"]["parts"][0]["text"].strip()
                     
@@ -201,11 +207,13 @@ class PDFBookParser:
                         ))
                 except Exception as e:
                     print(f"OCR error on page {page_num}: {e}")
+                    self.ocr_error = str(e)
                     continue
             
             doc.close()
         except Exception as e:
             print(f"OCR pipeline error: {e}")
+            self.ocr_error = str(e)
         
         return pages
 

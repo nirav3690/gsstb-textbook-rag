@@ -26,8 +26,9 @@ st.set_page_config(
 # Custom CSS for Dark Mode & Styling
 st.markdown("""
 <style>
-    .main { background-color: #0B0F19; }
-    .stApp { background-color: #0B0F19; color: #F9FAFB; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+Gujarati:wght@400;600;700&display=swap');
+    .main { background-color: #0B0F19; font-family: 'Noto Sans Gujarati', 'Inter', sans-serif; }
+    .stApp { background-color: #0B0F19; color: #F9FAFB; font-family: 'Noto Sans Gujarati', 'Inter', sans-serif; }
     .citation-box {
         background-color: #1F2937;
         border-left: 4px solid #6366F1;
@@ -136,7 +137,11 @@ with st.sidebar:
                         method_info = f" | Method: {parser.extraction_method}" if hasattr(parser, 'extraction_method') else ""
                         st.success(f"✅ Ingested '{parser.book_name}' ({len(pages)} pages, {len(chunks)} chunks{method_info})")
                         if parser.is_legacy_font and parser.extraction_method.startswith("PyMuPDF"):
-                            st.warning("⚠️ This PDF uses a legacy Gujarati font. Text may contain encoding artifacts. Set `GEMINI_API_KEY` in Secrets for automatic OCR.")
+                            st.warning("⚠️ This PDF uses a legacy Gujarati font. Text contains encoding artifacts.")
+                            if getattr(parser, 'ocr_error', ''):
+                                st.error(f"❌ OCR Error details: {parser.ocr_error}")
+                            elif not settings.GEMINI_API_KEY:
+                                st.info("💡 Enter your Gemini API Key in the sidebar above to run automatic Vision OCR.")
                         st.rerun()
             except Exception as e:
                 st.error(f"❌ Error processing PDF: {e}")
