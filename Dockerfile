@@ -8,17 +8,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Create user with UID 1000 for Hugging Face Spaces compatibility
+RUN useradd -m -u 1000 user
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH \
+    PYTHONPATH=/app/backend \
+    PORT=7860
+
 # Copy requirements & install dependencies
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
-COPY backend /app/backend
-COPY frontend /app/frontend
+COPY --chown=user:user backend /app/backend
+COPY --chown=user:user frontend /app/frontend
 
-# Set Python path to backend directory
-ENV PYTHONPATH=/app/backend
+# Create storage directories and set permissions for user 1000
+RUN mkdir -p /app/data/uploads /app/chroma_db && \
+    chown -R user:user /app
 
-EXPOSE 8000
+USER user
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE 7860
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]

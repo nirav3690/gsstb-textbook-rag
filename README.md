@@ -21,48 +21,29 @@ A production-grade, conversational Retrieval-Augmented Generation (RAG) system b
 - **Reranking**: Integrated `FlashRank` lightweight cross-encoder reranking.
 - **Metadata Filtering**: Filter queries by Standard (Std 9–12) or Subject (Science, Maths, etc.).
 - **Page & Snippet Drawer**: Interactive source drawer showing full text snippet used for the answer.
-- **Dockerized**: Containerized deployment with `Dockerfile` and `docker-compose.yml`.
+- **Dockerized & Hugging Face Ready**: Prepared for Docker and 100% Free deployment on **Hugging Face Spaces** (16GB RAM).
 
 ---
 
-## Project Structure
+## Quickstart Setup & Deployment
 
-```
-d:/RAG project/
-├── backend/
-│   ├── app/
-│   │   ├── main.py              # FastAPI Web App & Endpoints
-│   │   ├── config.py            # Global settings & RAG parameters
-│   │   ├── schemas/
-│   │   │   └── api_models.py    # Pydantic request/response models
-│   │   └── rag/
-│   │       ├── parser.py        # Page-aware PDF parser
-│   │       ├── chunker.py       # Metadata preserving chunker
-│   │       ├── vectorstore.py   # ChromaDB vector store
-│   │       ├── bm25_search.py   # BM25 sparse keyword index
-│   │       ├── hybrid.py        # Hybrid retriever (Dense + BM25 + RRF)
-│   │       ├── reranker.py      # FlashRank reranking
-│   │       ├── memory.py        # Multi-turn conversation memory
-│   │       └── generator.py     # Grounded LLM generator & citations
-│   ├── requirements.txt
-│   └── sample_data/
-├── frontend/
-│   ├── index.html               # Main Web Dashboard
-│   ├── css/
-│   │   └── style.css            # Dark mode Glassmorphism styles
-│   └── js/
-│       └── app.js               # Frontend chat & uploader logic
-├── Dockerfile
-├── docker-compose.yml
-├── .env.example
-└── README.md
-```
+### Option 1: Deploy on Hugging Face Spaces (Free 16GB RAM + Public URL)
+
+1. **Create a Free Space on Hugging Face**:
+   - Go to [huggingface.co/new-space](https://huggingface.co/new-space)
+   - Name: `gsstb-textbook-rag`
+   - SDK: Select **Docker** (Blank)
+   - Click **Create Space**
+
+2. **Push Code to Hugging Face**:
+   ```bash
+   git remote add space https://huggingface.co/spaces/YOUR_HF_USERNAME/gsstb-textbook-rag
+   git push space main
+   ```
 
 ---
 
-## Quickstart Setup
-
-### Option 1: Native Python Setup (Recommended for Local Dev)
+### Option 2: Native Python Setup (Local Dev)
 
 1. **Clone & Navigate to Project Directory**:
    ```bash
@@ -81,30 +62,23 @@ d:/RAG project/
    pip install -r backend/requirements.txt
    ```
 
-4. **Configure Environment Variables** (Optional):
-   Copy `.env.example` to `.env` if you want to supply an `OPENAI_API_KEY` or `GEMINI_API_KEY`. (Note: The system includes a built-in grounded extractive fallback if no API key is provided).
+4. **Launch Application**:
    ```bash
-   cp .env.example .env
+   python -m uvicorn backend.app.main:app --reload --port 7860
    ```
 
-5. **Launch Application**:
-   ```bash
-   python -m uvicorn backend.app.main:app --reload --port 8000
-   ```
-
-6. Open your browser at: **`http://localhost:8000`**
+5. Open your browser at: **`http://localhost:7860`**
 
 ---
 
-### Option 2: Docker Compose Setup
-
-Run the entire application in a Docker container with 1 command:
+### Option 3: Local Docker Setup
 
 ```bash
-docker-compose up --build
+docker build -t gsstb-rag .
+docker run -p 7860:7860 gsstb-rag
 ```
 
-Access the UI at **`http://localhost:8000`**.
+Access the UI at **`http://localhost:7860`**.
 
 ---
 
@@ -127,14 +101,3 @@ Access the UI at **`http://localhost:8000`**.
    - Ask a question not covered in the uploaded textbooks (e.g., *"What is quantum computing?"*).
    - The system will refuse to hallucinate and strictly return:
      > *"I am sorry, but the requested information is unavailable in the provided textbook knowledge base."*
-
----
-
-## API Documentation
-
-- `POST /api/upload`: Upload textbook PDF file (`multipart/form-data`)
-- `POST /api/chat`: Submit query + session ID + standard/subject filter
-- `GET /api/documents`: Get list of ingested textbooks and statistics
-- `DELETE /api/documents/{book_name}`: Delete textbook from index
-- `DELETE /api/chat/{session_id}`: Clear session memory
-- `GET /api/health`: System health & index count
