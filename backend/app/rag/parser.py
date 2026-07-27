@@ -22,60 +22,6 @@ class PageContent:
         }
 
 
-LEGACY_GUJARATI_MAP = {
-    # Vowels & Consonants
-    'Â': 'આ', 'Ã': 'ઇ', 'Ä': 'ઈ', 'Å': 'ઉ', 'Æ': 'ઊ', 'Ç': 'ઋ', 'È': 'એ', 'É': 'ઐ', 'Ê': 'ઓ', 'Ë': 'ઔ',
-    'Ì': 'ક', 'Í': 'ખ', 'Î': 'ગ', 'Ï': 'ઘ', 'Ð': 'ચ', 'Ñ': 'છ', 'Ò': 'જ', 'Ó': 'ઝ', 'Ô': 'ટ', 'Õ': 'ઠ',
-    'Ö': 'ડ', '×': 'ઢ', 'Ø': 'ણ', 'Ù': 'ત', 'Ú': 'થ', 'Û': 'દ', 'Ü': 'ધ', 'Ý': 'ન', 'Þ': 'પ', 'ß': 'ફ',
-    'à': 'બ', 'á': 'ભ', 'â': 'મ', 'ã': 'ય', 'ä': 'ર', 'å': 'લ', 'æ': 'વ', 'ç': 'શ', 'è': 'ષ', 'é': 'સ',
-    'ê': 'હ', 'ë': 'ળ', 'ì': 'ક્ષ', 'í': 'જ્ઞ', '¿': 'જ', 'À': 'ગ',
-    # Matras
-    'î': 'ા', 'ï': 'ી', 'ð': 'ુ', 'ñ': 'ૂ', 'ò': 'ૃ', 'ó': 'ે', 'ô': 'ૈ', 'õ': 'ો', 'ö': 'ૌ', '÷': 'ં',
-    'ø': 'ઃ', 'ù': '્', '±': 'ા', 'º': 'ુ', '»': 'ૂ', '«': 'ે', '¬': 'ો', 'ˆ': 'ં', '˜': 'ં', '‰': 'ં',
-    'Ï0': 'ધો', 'Î0': 'ગો', 'Ò0': 'જો', 'Ì0': 'કો', 'é0': 'સો', 'â0': 'મો', 'Ù0': 'તો'
-}
-
-def fix_legacy_gujarati_text(text: str) -> str:
-    """
-    Detects and converts legacy Gujarati font encodings (Gopika/Harikrishna/Akruti/Shruti)
-    to clean, searchable Gujarati Unicode characters.
-    """
-    if not text:
-        return text
-
-    # Handle pre-consonant and post-consonant 'i' matras (fi / fî / fï / lfii)
-    text = re.sub(r'lfii', 'િ', text)
-    text = re.sub(r'f[iîï]([\u00A0-\u00FF|\u0A80-\u0AFF|a-zA-Z])', r'\1િ', text)
-    text = re.sub(r'([\u0A80-\u0AFF])f[iîï]', r'\1િ', text)
-    text = re.sub(r'([\u0A80-\u0AFF])fi', r'\1િ', text)
-
-    # Legacy character fixes
-    text = re.sub(r'ગ<', 'ગ', text)
-    text = re.sub(r'◦', ' ', text)
-    text = re.sub(r'\|', '', text)
-    text = re.sub(r'/ં', 'ં', text)
-
-    # Replace character mappings
-    converted = []
-    i = 0
-    while i < len(text):
-        if i + 1 < len(text) and text[i:i+2] in LEGACY_GUJARATI_MAP:
-            converted.append(LEGACY_GUJARATI_MAP[text[i:i+2]])
-            i += 2
-        elif text[i] in LEGACY_GUJARATI_MAP:
-            converted.append(LEGACY_GUJARATI_MAP[text[i]])
-            i += 1
-        else:
-            converted.append(text[i])
-            i += 1
-
-    result = "".join(converted)
-    # Clean up non-printable control characters and duplicate whitespace
-    result = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', result)
-    result = re.sub(r'[ \t]+', ' ', result)
-    return result
-
-
 def extract_metadata_from_filename(filename: str) -> Tuple[str, str, str]:
     clean_name = Path(filename).stem
     
@@ -103,15 +49,44 @@ def extract_metadata_from_filename(filename: str) -> Tuple[str, str, str]:
     return book_name, standard, detected_subject
 
 
+def _is_garbled_text(text: str) -> bool:
+    """
+    Detect if extracted text is garbled (legacy font encoding issue).
+    Garbled text from legacy Gujarati fonts has a mix of random ASCII symbols
+    and partial Gujarati characters that don't form real words.
+    """
+    if not text or len(text) < 20:
+        return False
+    
+    # Count Gujarati Unicode characters (U+0A80 - U+0AFF)
+    gujarati_chars = sum(1 for c in text if '\u0A80' <= c <= '\u0AFF')
+    ascii_nonalpha = sum(1 for c in text if c in '<>&|_/\\~`^{}[]@#$%*+=')
+    total = len(text.replace(' ', '').replace('\n', ''))
+    
+    if total == 0:
+        return False
+    
+    # If text has SOME Gujarati but also heavy ASCII noise, it's garbled
+    guj_ratio = gujarati_chars / total
+    noise_ratio = ascii_nonalpha / total
+    
+    # Garbled: has Gujarati chars mixed with lots of ASCII noise symbols
+    if 0.05 < guj_ratio < 0.6 and noise_ratio > 0.05:
+        return True
+    
+    return False
+
+
 class PDFBookParser:
     def __init__(self, file_path: str):
         self.file_path = Path(file_path)
         self.book_name, self.standard, self.subject = extract_metadata_from_filename(self.file_path.name)
+        self.extraction_method = "unknown"
+        self.is_legacy_font = False
 
-    def parse(self, progress_callback=None) -> List[PageContent]:
+    def _extract_with_fitz(self, progress_callback=None) -> List[PageContent]:
+        """Primary: PyMuPDF C++ engine text extraction."""
         pages = []
-        
-        # 1. Try PyMuPDF (fitz) - High speed C++ engine
         try:
             import fitz
             doc = fitz.open(str(self.file_path))
@@ -120,11 +95,10 @@ class PDFBookParser:
             for idx, page in enumerate(doc):
                 page_num = idx + 1
                 if progress_callback and (idx % 10 == 0 or idx == total_pages - 1):
-                    progress_callback(page_num, total_pages)
+                    progress_callback(page_num, total_pages, "Extracting text (PyMuPDF)")
 
                 raw_text = page.get_text("text") or ""
                 cleaned_text = re.sub(r'[ \t]+', ' ', raw_text).strip()
-                cleaned_text = fix_legacy_gujarati_text(cleaned_text)
                 
                 if cleaned_text:
                     pages.append(PageContent(
@@ -137,31 +111,135 @@ class PDFBookParser:
             doc.close()
         except Exception as e:
             print(f"PyMuPDF extraction error: {e}")
+        return pages
 
-        # 2. Fallback to PyPDF if PyMuPDF extracted no text
-        if not pages:
-            try:
-                reader = PdfReader(str(self.file_path))
-                total_pages = len(reader.pages)
+    def _extract_with_pypdf(self, progress_callback=None) -> List[PageContent]:
+        """Fallback: pypdf text extraction."""
+        pages = []
+        try:
+            reader = PdfReader(str(self.file_path))
+            total_pages = len(reader.pages)
+            
+            for idx, page in enumerate(reader.pages):
+                page_num = idx + 1
+                if progress_callback and (idx % 10 == 0 or idx == total_pages - 1):
+                    progress_callback(page_num, total_pages, "Extracting text (PyPDF)")
+
+                raw_text = page.extract_text() or ""
+                cleaned_text = re.sub(r'[ \t]+', ' ', raw_text).strip()
                 
-                for idx, page in enumerate(reader.pages):
-                    page_num = idx + 1
-                    if progress_callback and (idx % 10 == 0 or idx == total_pages - 1):
-                        progress_callback(page_num, total_pages)
+                if cleaned_text:
+                    pages.append(PageContent(
+                        page_number=page_num,
+                        text=cleaned_text,
+                        book_name=self.book_name,
+                        standard=self.standard,
+                        subject=self.subject
+                    ))
+        except Exception as e:
+            print(f"pypdf extraction error: {e}")
+        return pages
 
-                    raw_text = page.extract_text() or ""
-                    cleaned_text = re.sub(r'[ \t]+', ' ', raw_text).strip()
-                    cleaned_text = fix_legacy_gujarati_text(cleaned_text)
+    def _extract_with_ocr(self, progress_callback=None) -> List[PageContent]:
+        """
+        OCR fallback for legacy Gujarati font PDFs.
+        Renders each page as a high-res image, then uses Gemini API for OCR.
+        """
+        pages = []
+        gemini_key = os.getenv("GEMINI_API_KEY", "")
+        
+        if not gemini_key:
+            print("OCR skipped: No GEMINI_API_KEY set for vision OCR")
+            return pages
+        
+        try:
+            import fitz
+            import requests
+            import base64
+            
+            doc = fitz.open(str(self.file_path))
+            total_pages = len(doc)
+            
+            for idx, page in enumerate(doc):
+                page_num = idx + 1
+                if progress_callback and (idx % 2 == 0 or idx == total_pages - 1):
+                    progress_callback(page_num, total_pages, "OCR via Gemini Vision")
+                
+                # Render page as image (150 DPI for good quality, manageable size)
+                mat = fitz.Matrix(150 / 72, 150 / 72)
+                pix = page.get_pixmap(matrix=mat)
+                img_bytes = pix.tobytes("png")
+                img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+                
+                # Call Gemini Vision API for OCR
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
+                payload = {
+                    "contents": [{
+                        "parts": [
+                            {"text": "Extract ALL text from this textbook page image. Return ONLY the extracted text content, preserving paragraph structure. If the text is in Gujarati, return it in Gujarati Unicode. Do not add any commentary or formatting."},
+                            {"inline_data": {"mime_type": "image/png", "data": img_b64}}
+                        ]
+                    }],
+                    "generationConfig": {"temperature": 0.0, "maxOutputTokens": 4096}
+                }
+                
+                try:
+                    resp = requests.post(url, json=payload, timeout=60)
+                    resp.raise_for_status()
+                    result = resp.json()
+                    ocr_text = result["candidates"][0]["content"]["parts"][0]["text"].strip()
                     
-                    if cleaned_text:
+                    if ocr_text and len(ocr_text) > 10:
                         pages.append(PageContent(
                             page_number=page_num,
-                            text=cleaned_text,
+                            text=ocr_text,
                             book_name=self.book_name,
                             standard=self.standard,
                             subject=self.subject
                         ))
-            except Exception as e:
-                print(f"pypdf extraction error: {e}")
+                except Exception as e:
+                    print(f"OCR error on page {page_num}: {e}")
+                    continue
+            
+            doc.close()
+        except Exception as e:
+            print(f"OCR pipeline error: {e}")
+        
+        return pages
 
+    def parse(self, progress_callback=None) -> List[PageContent]:
+        """
+        Smart multi-strategy PDF text extraction:
+        1. Try PyMuPDF text extraction (fast, low memory)
+        2. If garbled (legacy font), try OCR via Gemini Vision API
+        3. Fallback to pypdf
+        """
+        # Strategy 1: PyMuPDF
+        pages = self._extract_with_fitz(progress_callback)
+        self.extraction_method = "PyMuPDF"
+        
+        # Check if text is garbled (legacy Gujarati font)
+        if pages:
+            sample_pages = pages[:5]
+            garbled_count = sum(1 for p in sample_pages if _is_garbled_text(p.text))
+            
+            if garbled_count >= len(sample_pages) * 0.5:
+                self.is_legacy_font = True
+                print(f"[Parser] Detected legacy Gujarati font in '{self.book_name}'. Attempting OCR...")
+                
+                # Strategy 2: OCR via Gemini Vision
+                ocr_pages = self._extract_with_ocr(progress_callback)
+                if ocr_pages:
+                    self.extraction_method = "Gemini Vision OCR"
+                    return ocr_pages
+                else:
+                    # Return garbled text with a warning prefix
+                    print(f"[Parser] OCR failed or no API key. Returning raw extracted text.")
+                    self.extraction_method = "PyMuPDF (legacy font - may contain encoding artifacts)"
+        
+        # Strategy 3: Fallback to pypdf if PyMuPDF got nothing
+        if not pages:
+            pages = self._extract_with_pypdf(progress_callback)
+            self.extraction_method = "PyPDF"
+        
         return pages

@@ -83,6 +83,7 @@ with st.sidebar:
     if uploaded_file is not None:
         if st.button("⚡ Process & Index Textbook", use_container_width=True, type="primary"):
             progress_bar = st.progress(0, text="Starting PDF processing...")
+            status_text = st.empty()
             save_path = settings.UPLOAD_DIR / uploaded_file.name
             with open(save_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
@@ -90,14 +91,16 @@ with st.sidebar:
             try:
                 parser = PDFBookParser(str(save_path))
                 
-                def update_pdf_progress(current_page, total_pages):
+                def update_pdf_progress(current_page, total_pages, method="Extracting"):
                     pct = int(5 + (current_page / max(1, total_pages)) * 45)
-                    progress_bar.progress(pct, text=f"Parsing page {current_page} of {total_pages}...")
+                    progress_bar.progress(pct, text=f"{method}: page {current_page} of {total_pages}...")
 
                 pages = parser.parse(progress_callback=update_pdf_progress)
                 
                 if not pages:
                     st.error("⚠️ Could not extract text from this PDF. It may be a scanned image PDF without a text layer.")
+                    if not settings.GEMINI_API_KEY:
+                        st.warning("💡 **Tip**: Set a `GEMINI_API_KEY` in Streamlit Cloud Secrets to enable automatic OCR for legacy Gujarati font PDFs.")
                     progress_bar.empty()
                 else:
                     progress_bar.progress(50, text=f"Chunking {len(pages)} pages...")
@@ -112,7 +115,10 @@ with st.sidebar:
                         bm25_index.add_chunks(chunks)
                         
                         progress_bar.progress(100, text="Indexing complete!")
-                        st.success(f"✅ Successfully ingested '{parser.book_name}' ({len(pages)} pages, {len(chunks)} text chunks)")
+                        method_info = f" | Method: {parser.extraction_method}" if hasattr(parser, 'extraction_method') else ""
+                        st.success(f"✅ Ingested '{parser.book_name}' ({len(pages)} pages, {len(chunks)} chunks{method_info})")
+                        if parser.is_legacy_font and parser.extraction_method.startswith("PyMuPDF"):
+                            st.warning("⚠️ This PDF uses a legacy Gujarati font. Text may contain encoding artifacts. Set `GEMINI_API_KEY` in Secrets for automatic OCR.")
                         st.rerun()
             except Exception as e:
                 st.error(f"❌ Error processing PDF: {e}")
