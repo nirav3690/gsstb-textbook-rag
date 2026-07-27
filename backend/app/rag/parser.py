@@ -60,24 +60,52 @@ class PDFBookParser:
 
     def parse(self, progress_callback=None) -> List[PageContent]:
         pages = []
-        reader = PdfReader(str(self.file_path))
-        total_pages = len(reader.pages)
-        
-        for idx, page in enumerate(reader.pages):
-            page_num = idx + 1
-            if progress_callback and (idx % 5 == 0 or idx == total_pages - 1):
-                progress_callback(page_num, total_pages)
-
-            raw_text = page.extract_text() or ""
-            # Clean up whitespace and boilerplate line breaks
-            cleaned_text = re.sub(r'[ \t]+', ' ', raw_text).strip()
+        try:
+            reader = PdfReader(str(self.file_path))
+            total_pages = len(reader.pages)
             
-            if cleaned_text:
-                pages.append(PageContent(
-                    page_number=page_num,
-                    text=cleaned_text,
-                    book_name=self.book_name,
-                    standard=self.standard,
-                    subject=self.subject
-                ))
+            for idx, page in enumerate(reader.pages):
+                page_num = idx + 1
+                if progress_callback and (idx % 5 == 0 or idx == total_pages - 1):
+                    progress_callback(page_num, total_pages)
+
+                raw_text = page.extract_text() or ""
+                cleaned_text = re.sub(r'[ \t]+', ' ', raw_text).strip()
+                
+                if cleaned_text:
+                    pages.append(PageContent(
+                        page_number=page_num,
+                        text=cleaned_text,
+                        book_name=self.book_name,
+                        standard=self.standard,
+                        subject=self.subject
+                    ))
+        except Exception as e:
+            print(f"pypdf extraction error: {e}")
+
+        # Fallback to pdfplumber if pypdf extracted no text
+        if not pages:
+            try:
+                import pdfplumber
+                with pdfplumber.open(str(self.file_path)) as pdf:
+                    total_pages = len(pdf.pages)
+                    for idx, page in enumerate(pdf.pages):
+                        page_num = idx + 1
+                        if progress_callback and (idx % 5 == 0 or idx == total_pages - 1):
+                            progress_callback(page_num, total_pages)
+
+                        raw_text = page.extract_text() or ""
+                        cleaned_text = re.sub(r'[ \t]+', ' ', raw_text).strip()
+                        
+                        if cleaned_text:
+                            pages.append(PageContent(
+                                page_number=page_num,
+                                text=cleaned_text,
+                                book_name=self.book_name,
+                                standard=self.standard,
+                                subject=self.subject
+                            ))
+            except Exception as e:
+                print(f"pdfplumber extraction error: {e}")
+
         return pages
