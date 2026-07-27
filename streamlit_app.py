@@ -227,12 +227,23 @@ if prompt := st.chat_input("Ask a question from GSSTB textbooks..."):
                 top_k=settings.FINAL_TOP_K
             )
             
-            response = generator.generate_response(
-                query=prompt,
-                context_chunks=top_chunks,
-                session_id="streamlit_session",
-                target_language=answer_lang
-            )
+            try:
+                response = generator.generate_response(
+                    query=prompt,
+                    context_chunks=top_chunks,
+                    session_id="streamlit_session",
+                    target_language=answer_lang
+                )
+            except TypeError:
+                st.cache_resource.clear()
+                from app.rag.generator import RAGGenerator
+                generator = RAGGenerator()
+                response = generator.generate_response(
+                    query=prompt,
+                    context_chunks=top_chunks,
+                    session_id="streamlit_session",
+                    target_language=answer_lang
+                )
             
             st.markdown(response.answer)
             

@@ -80,7 +80,8 @@ class RAGGenerator:
         context_chunks: List[Tuple[Chunk, float]],
         conversation_history: str = "",
         session_id: str = "default",
-        target_language: str = "English"
+        target_language: str = "English",
+        **kwargs
     ) -> ChatResponse:
         # Check if context chunks exist or are too weak
         if not context_chunks:
