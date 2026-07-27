@@ -81,24 +81,38 @@ with st.sidebar:
     uploaded_file = st.file_uploader("Choose a GSSTB PDF Textbook", type=["pdf"])
     
     if uploaded_file is not None:
-        if st.button("Process & Index Textbook", use_container_width=True):
-            with st.spinner("Parsing PDF pages, extracting metadata & creating vector embeddings..."):
-                save_path = settings.UPLOAD_DIR / uploaded_file.name
-                with open(save_path, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
+        if st.button("⚡ Process & Index Textbook", use_container_width=True, type="primary"):
+            progress_bar = st.progress(0, text="Starting PDF processing...")
+            save_path = settings.UPLOAD_DIR / uploaded_file.name
+            with open(save_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            
+            try:
+                progress_bar.progress(25, text="Parsing PDF pages & extracting text...")
+                parser = PDFBookParser(str(save_path))
+                pages = parser.parse()
                 
-                try:
-                    parser = PDFBookParser(str(save_path))
-                    pages = parser.parse()
+                if not pages:
+                    st.error("⚠️ Could not extract text from this PDF. It may be a scanned image PDF without a text layer.")
+                    progress_bar.empty()
+                else:
+                    progress_bar.progress(50, text=f"Chunking {len(pages)} pages...")
                     chunks = chunker.chunk_pages(pages)
                     
-                    vectorstore.add_chunks(chunks)
-                    bm25_index.add_chunks(chunks)
-                    
-                    st.success(f"Ingested '{parser.book_name}' ({len(pages)} pages, {len(chunks)} chunks)")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error processing PDF: {e}")
+                    if not chunks:
+                        st.error("⚠️ No text chunks could be created from the extracted pages.")
+                        progress_bar.empty()
+                    else:
+                        progress_bar.progress(75, text="Creating embeddings & indexing into ChromaDB + BM25...")
+                        vectorstore.add_chunks(chunks)
+                        bm25_index.add_chunks(chunks)
+                        
+                        progress_bar.progress(100, text="Indexing complete!")
+                        st.success(f"✅ Successfully ingested '{parser.book_name}' ({len(pages)} pages, {len(chunks)} text chunks)")
+                        st.rerun()
+            except Exception as e:
+                st.error(f"❌ Error processing PDF: {e}")
+                progress_bar.empty()
 
     st.divider()
     st.subheader("📚 Knowledge Base")
